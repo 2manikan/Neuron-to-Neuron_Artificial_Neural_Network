@@ -42,54 +42,57 @@ def forward_pass(model, inp):
     
 
 def backpropogation(model, target):
-    learning_rate=0.001
+    learning_rate=0.0001
     
     #calculate error (MSE)
     error=0
     count=0
-    for end_node in range(8,9):
+    for end_node in range(8,10):
        
        model[end_node][4] = 2*(model[end_node][2] - target[count])*1     #dE/d(final node)
        count += 1
        
        #debugging
-       print("final_value: ",model[end_node][2])    #just prints the predicted value
-       
+       print("final_values: ",model[end_node][2])    #just prints the predicted value
+    print("------------------------")
     
-    fringe=[8]  #bfs
-    while len(fringe) != 0:
-        current=fringe.pop()
+    for end_node in range(8,10):
+        fringe=[end_node]  #bfs
+        while len(fringe) != 0:
+            current=fringe.pop()
+            
+            
+            #traverse children (reverse)
+            for adj_node in model[current][0]:
+                #calculate gradient and update the weights connecting adj_node to current
+                grad=model[current][-1] * model[adj_node][2]   #dE/d(final node)...  *d(node)/d(weight)
+                
+                
+                
+                #update adj_node gradient
+                model[adj_node][-1] = model[current][-1] * model[current][0][adj_node]  #dE/d(final node) * d(final node)/d(adj_node) ...
+                
+                
+                #for debugging
+                # print("dE/d(final node): ", model[current][-1] , "----- adj value: ",model[adj_node][2])
+                # if adj_node == 7 and current == 8:  #just focusing on one particular weight value
+                #   print("grad: ",model[current][-1] * model[adj_node][2])   #prints respective grad witho one
+                #print("-----------------------------------")
+                # print("previous weight: ", model[current][0][adj_node])
+                
+                
+                #update weight connection adj_node to current
+                model[current][0][adj_node] -= learning_rate * grad   # -= since we minimize. we do += for maximize
+                model[adj_node][1][current] = model[current][0][adj_node]
+                
+                #for debugging
+                # print("learning rate: ",learning_rate,"------------ grad: ",grad)
+                # print("new_weight: ", model[current][0][adj_node])
         
-        
-        #traverse children (reverse)
-        for adj_node in model[current][0]:
-            #calculate gradient and update the weights connecting adj_node to current
-            grad=model[current][-1] * model[adj_node][2]   #dE/d(final node)...  *d(node)/d(weight)
-            
-            
-            
-            #update adj_node gradient
-            model[adj_node][-1] = model[current][-1] * model[current][0][adj_node]  #dE/d(final node) * d(final node)/d(adj_node) ...
-            
-            
-            #for debugging
-            # print("dE/d(final node): ", model[current][-1] , "----- adj value: ",model[adj_node][2])
-            # print("grad: ",model[current][-1] * model[adj_node][2])   #prints respective grad witho one
-            # print("-----------------------------------")
-            # print("previous weight: ", model[current][0][adj_node])
-            
-            
-            #update weight connection adj_node to current
-            model[current][0][adj_node] -= learning_rate * grad   # -= since we minimize. we do += for maximize
-            model[adj_node][1][current] = model[current][0][adj_node]
-            
-            #for debugging
-            # print("learning rate: ",learning_rate,"------------ grad: ",grad)
-            # print("new_weight: ", model[current][0][adj_node])
-    
-            
-            #insert adjacent node into fringe
-            fringe.insert(0,adj_node)
+                
+                #insert adjacent node into fringe
+                #fringe.insert(0,adj_node)
+                fringe.append(adj_node)   #does not matter if we perform BFS or DFS. 
     
     #for debugging
     # print(model)
@@ -98,7 +101,7 @@ def backpropogation(model, target):
     # print("---------------------------")
     
     
-    for node in range(0,9):  #to reset for forward propogation
+    for node in range(0,10):  #to reset for forward propogation
         if node <= 4:
             model[node][2]=None
         else:
@@ -119,7 +122,7 @@ model={
        
        
        #network(layer 1: 5 nodes to 3 nodes)
-       0:[{},{5:0.1, 6:0.1, 7:0.1},None, 0, None],  #input_nodes, output_nodes, value, total inputs actually recieved
+       0:[{},{5:0.1, 6:0.1, 7:0.1},None, 0, None],  #input_nodes, output_nodes, value, total inputs actually recieved, node's gradient
        1:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
        2:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
        3:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
@@ -131,14 +134,15 @@ model={
        7:[{0:0.1, 1:0.1, 2:0.1, 3:0.1, 4:0.1},{8:0.1}, 0, 0, None],
        
        #one node
-       8:[{5:0.1, 6:0.1, 7:0.1},{}, 0, 0, None]
+       8:[{5:0.1, 6:0.1, 7:0.1},{}, 0, 0, None],
+       9:[{5:0.1, 6:0.1, 7:0.1},{}, 0, 0, None]
        
        }
 
 
-for i in range(20):
+for i in range(50):
    forward_pass(model, inp_tensor)
-   backpropogation(model, [50])
+   backpropogation(model, [134,67])
 
 
 
