@@ -6,12 +6,11 @@ Created on Wed Jun 25 19:47:15 2025
 @author: manid
 """
 
-#imports
-import numpy as np
-import matplotlib.pyplot as plt
-
-
 #first: make a fully connected neural network. then do sparse
+
+
+from LinkedListQueue import LinkedListQueue
+
 def forward_pass(model, inp):
    
    #replace node values with inputs --> is O(x) where x = input size
@@ -24,9 +23,11 @@ def forward_pass(model, inp):
    
    for start_node in range(0, 5):
        #bfs traversal
-       fringe=[start_node] #start with dummy node
+       fringe=LinkedListQueue()  
+       fringe.enqueue(start_node)  #start with dummy node
+       
        while len(fringe)!=0:
-           current=fringe.pop()
+           current=fringe.dequeue()
            
            
            #iterate children (nodes going outward)
@@ -36,7 +37,7 @@ def forward_pass(model, inp):
                
                 
                 if model[adj_node][3] == len(model[adj_node][0]):
-                    fringe.insert(0, adj_node)
+                    fringe.enqueue(adj_node)
                
                
     
@@ -44,7 +45,7 @@ def forward_pass(model, inp):
     
 
 def backpropogation(model, target):
-    learning_rate=1e-4
+    learning_rate=0.0001
     
     #calculate error (MSE)
     error=0
@@ -55,11 +56,11 @@ def backpropogation(model, target):
        count += 1
        
        #debugging
-       #print("final_values: ",model[end_node][2])    #just prints the predicted value
-    #print("------------------------")
+       print("final_values: ",model[end_node][2])    #just prints the predicted value
+    print("------------------------")
     
     for end_node in range(8,10):
-        fringe=[end_node]  #bfs
+        fringe=[end_node]  #dfs
         while len(fringe) != 0:
             current=fringe.pop()
             
@@ -94,7 +95,7 @@ def backpropogation(model, target):
                 
                 #insert adjacent node into fringe
                 #fringe.insert(0,adj_node)
-                fringe.append(adj_node)   #does not matter if we perform BFS or DFS. 
+                fringe.append(adj_node)   #Must be DFS. BFS WILL NOT WORK for node-node skip connection graphs. 
     
     #for debugging
     # print(model)
@@ -116,7 +117,7 @@ def backpropogation(model, target):
 
 
 
-
+inp_tensor=[1,2,3,4,5]
 
 
 #create graph
@@ -141,23 +142,10 @@ model={
        
        }
 
-#also for debugging
-losses=[]
 
-for i in range(300):
-   #set up inputs and prediction functions
-   inp_tensor=np.random.randint(1,10,size=(5,))
-   first_node_target=2*inp_tensor[0]+0.45*inp_tensor[1]+0.73*inp_tensor[2]+1.45*inp_tensor[3]+0.92*inp_tensor[4]
-   second_node_target=3.45*inp_tensor[0]+0.23*inp_tensor[1]+1.42*inp_tensor[2]+1.89*inp_tensor[3]+0.333*inp_tensor[4]
-   #print("target: ",[first_node_target, second_node_target])
-   
-   #train model
+for i in range(50):
    forward_pass(model, inp_tensor)
-   losses.append((first_node_target - model[8][2])**2 + (second_node_target - model[9][2])**2)
-   backpropogation(model, [first_node_target, second_node_target])
-
-plt.plot(losses)
-plt.show()
+   backpropogation(model, [13,200])
 
 
 
