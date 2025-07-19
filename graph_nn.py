@@ -10,6 +10,9 @@ Created on Wed Jun 25 19:47:15 2025
 
 
 from LinkedListQueue import LinkedListQueue
+import math
+
+plot_this=[]
 
 def forward_pass(model, inp):
    
@@ -32,7 +35,7 @@ def forward_pass(model, inp):
            
            #iterate children (nodes going outward)
            for adj_node in model[current][1]:
-                model[adj_node][2] += (model[current][2] * model[current][1][adj_node])
+                model[adj_node][2] += (model[current][2] * model[current][1][adj_node][0])
                 model[adj_node][3] += 1
                
                 
@@ -44,20 +47,24 @@ def forward_pass(model, inp):
     #guaranteed to have traversed all paths, so guaranteed to have calculated output node. all values stored in nodes. so no return value
     
 
-def backpropogation(model, target):
-    learning_rate=0.0001
+def backpropogation(model, target, adam=False):
+    learning_rate=0.01
     
     #calculate error (MSE)
     error=0
     count=0
+    alpha=0.9
+    eps=1e-8
     for end_node in range(8,10):
        
        model[end_node][4] = 2*(model[end_node][2] - target[count])*1     #dE/d(final node)
        count += 1
        
        #debugging
-       print("final_values: ",model[end_node][2])    #just prints the predicted value
-    print("------------------------")
+       # if end_node == 9:
+       #    plot_this.append(model[end_node][2])
+    #    print("final_values: ",model[end_node][2])    #just prints the predicted value
+    # print("------------------------")
     
     for end_node in range(8,10):
         fringe=[end_node]  #dfs
@@ -68,25 +75,43 @@ def backpropogation(model, target):
             #traverse children (reverse)
             for adj_node in model[current][0]:
                 #calculate gradient and update the weights connecting adj_node to current
-                grad=model[current][-1] * model[adj_node][2]   #dE/d(final node)...  *d(node)/d(weight)
+                grad=model[current][4] * model[adj_node][2]   #dE/d(final node)...  *d(node)/d(weight)
                 
                 
                 
                 #update adj_node gradient
-                model[adj_node][-1] = model[current][-1] * model[current][0][adj_node]  #dE/d(final node) * d(final node)/d(adj_node) ...
+                model[adj_node][4] = model[current][4] * model[current][0][adj_node][0]  #dE/d(final node) * d(final node)/d(adj_node) ...
                 
                 
                 #for debugging
-                # print("dE/d(final node): ", model[current][-1] , "----- adj value: ",model[adj_node][2])
+                # print("dE/d(final node): ", model[current][4] , "----- adj value: ",model[adj_node][2])
                 # if adj_node == 7 and current == 8:  #just focusing on one particular weight value
-                #   print("grad: ",model[current][-1] * model[adj_node][2])   #prints respective grad witho one
+                #   print("grad: ",model[current][4] * model[adj_node][2])   #prints respective grad witho one
                 #print("-----------------------------------")
                 # print("previous weight: ", model[current][0][adj_node])
                 
                 
                 #update weight connection adj_node to current
-                model[current][0][adj_node] -= learning_rate * grad   # -= since we minimize. we do += for maximize
-                model[adj_node][1][current] = model[current][0][adj_node]
+                
+                if adam == True:
+                    #first store weight averages
+                    if model[current][0][adj_node][1] == None:
+                        model[current][0][adj_node][1] = grad
+                    else:
+                        model[current][0][adj_node][1] = alpha * model[current][0][adj_node][1] + (1-alpha) * grad
+                    
+                    if model[current][0][adj_node][2] == None:
+                        model[current][0][adj_node][2] = grad ** 2
+                    else:
+                        model[current][0][adj_node][2] = alpha * model[current][0][adj_node][2] + (1-alpha) * grad ** 2
+                    
+                    #then take a step
+                    model[current][0][adj_node][0] -= learning_rate *  (model[current][0][adj_node][1]/math.sqrt(model[current][0][adj_node][2] + eps))
+                    model[adj_node][1][current][0] = model[current][0][adj_node][0]
+                 
+                else:
+                    model[current][0][adj_node][0] -= learning_rate * grad   # -= since we minimize. we do += for maximize
+                    model[adj_node][1][current][0] = model[current][0][adj_node][0]
                 
                 #for debugging
                 # print("learning rate: ",learning_rate,"------------ grad: ",grad)
@@ -125,27 +150,30 @@ model={
        
        
        #network(layer 1: 5 nodes to 3 nodes)
-       0:[{},{5:0.1, 6:0.1, 7:0.1},None, 0, None],  #input_nodes, output_nodes, value, total inputs actually recieved, node's gradient
-       1:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
-       2:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
-       3:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
-       4:[{},{5:0.1, 6:0.1, 7:0.1}, None, 0, None],
+       0:[{},{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]},None, 0, None],  #input_nodes, output_nodes, value, total inputs actually recieved, node's gradient
+       1:[{},{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
+       2:[{},{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
+       3:[{},{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
+       4:[{},{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
        
        #network(layer 2: 3 nodes to one node)
-       5:[{0:0.1, 1:0.1, 2:0.1, 3:0.1, 4:0.1},{8:0.1}, 0, 0, None],
-       6:[{0:0.1, 1:0.1, 2:0.1, 3:0.1, 4:0.1},{8:0.1}, 0, 0, None],
-       7:[{0:0.1, 1:0.1, 2:0.1, 3:0.1, 4:0.1},{8:0.1}, 0, 0, None],
+       5:[{0:[0.1, None, None], 1:[0.1, None, None], 2:[0.1, None, None], 3:[0.1, None, None], 
+           4:[0.1, None, None]},{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
+       6:[{0:[0.1, None, None], 1:[0.1, None, None], 2:[0.1, None, None], 
+           3:[0.1, None, None], 4:[0.1, None, None]},{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
+       7:[{0:[0.1, None, None], 1:[0.1, None, None], 2:[0.1, None, None], 3:[0.1, None, None], 
+           4:[0.1, None, None]},{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
        
        #one node
-       8:[{5:0.1, 6:0.1, 7:0.1},{}, 0, 0, None],
-       9:[{5:0.1, 6:0.1, 7:0.1},{}, 0, 0, None]
+       8:[{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]},{}, 0, 0, None],
+       9:[{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]},{}, 0, 0, None]
        
        }
 
 
-for i in range(50):
+for i in range(1000):
    forward_pass(model, inp_tensor)
-   backpropogation(model, [13,200])
+   backpropogation(model, [54,143], adam=True)
 
 
 
