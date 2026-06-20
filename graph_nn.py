@@ -13,131 +13,179 @@ from LinkedListQueue import LinkedListQueue
 import math
 import matplotlib.pyplot as plt 
 
-plot_this=[]
 
-def forward_pass(model, inp):
-   
-   #replace node values with inputs --> is O(x) where x = input size
-   count=0
-   for inp_value in inp:
-       model[count][2] = inp_value
-       count+=1
+#---------------------------------------
 
-
-   
-   for start_node in range(0, 5):
-       #bfs traversal
-       fringe=LinkedListQueue()  
-       fringe.enqueue(start_node)  #start with dummy node
-       
-       while len(fringe)!=0:
-           current=fringe.dequeue()
-           
-           
-           #iterate children (nodes going outward)
-           for adj_node in model[current][1]:
-                model[adj_node][2] += (model[current][2] * model[current][1][adj_node][0])
-                model[adj_node][3] += 1
-               
-                
-                if model[adj_node][3] == len(model[adj_node][0]):
-                    fringe.enqueue(adj_node)
-               
-               
+class Node:
+    def __init__(self):
+        self.node_value = 0
+        self.actual_number_of_inputs = 0
+        self.node_gradient = None  #is dL/d(node)
     
-    #guaranteed to have traversed all paths, so guaranteed to have calculated output node. all values stored in nodes. so no return value
     
-
-def backpropogation(model, target, adam=False):
-    learning_rate=0.0001
+    def get_value(self):
+        return self.node_value
     
-    #calculate error (MSE)
-    error=0
-    count=0
-    alpha=0.9
-    eps=1e-8
-    for end_node in range(8,10):
-       
-       model[end_node][4] = 2*(model[end_node][2] - target[count])*1     #dE/d(final node)
-       count += 1
-       
-       #debugging
-       if end_node == 9:
-          plot_this.append(model[end_node][2])
-       print("final_values: ",model[end_node][2])    #just prints the predicted value
-    print("------------------------")
+    def set_value(self, value):
+        self.node_value = value
     
-    for end_node in range(8,10):
-        fringe=[end_node]  #dfs
-        while len(fringe) != 0:
-            current=fringe.pop()
-            
-            
-            #traverse children (reverse)
-            for adj_node in model[current][0]:
-                #calculate gradient and update the weights connecting adj_node to current
-                grad=model[current][4] * model[adj_node][2]   #dE/d(final node)...  *d(node)/d(weight)
-                
-                
-                
-                #update adj_node gradient
-                model[adj_node][4] = model[current][4] * model[adj_node][1][current][0]  #dE/d(final node) * d(final node)/d(adj_node) ...
-                
-                
-                #for debugging
-                # print("dE/d(final node): ", model[current][4] , "----- adj value: ",model[adj_node][2])
-                # if adj_node == 7 and current == 8:  #just focusing on one particular weight value
-                #   print("grad: ",model[current][4] * model[adj_node][2])   #prints respective grad witho one
-                #print("-----------------------------------")
-                # print("previous weight: ", model[current][0][adj_node])
-                
-                
-                #update weight connection adj_node to current
-                
-                if adam == True:
-                    #first store weight averages
-                    if model[adj_node][1][current][1] == None:
-                        model[adj_node][1][current][1] = grad
-                    else:
-                        model[adj_node][1][current][1] = alpha * model[adj_node][1][current][1] + (1-alpha) * grad
-                    
-                    if model[adj_node][1][current][2] == None:
-                        model[adj_node][1][current][2] = grad ** 2
-                    else:
-                        model[adj_node][1][current][2] = alpha * model[adj_node][1][current][2] + (1-alpha) * grad ** 2
-                    
-                    #then take a step
-                    model[adj_node][1][current][0] -= learning_rate *  (model[adj_node][1][current][1]/math.sqrt(model[adj_node][1][current][2] + eps))
-                    
-                 
-                else:
-                    model[adj_node][1][current][0]  -= learning_rate * grad   # -= since we minimize. we do += for maximize
-                     
-                
-                #for debugging
-                # print("learning rate: ",learning_rate,"------------ grad: ",grad)
-                # print("new_weight: ", model[current][0][adj_node])
+    def get_actual_number_of_inputs(self):
+        return self.actual_number_of_inputs
+    
+    def increase_actual_number_of_inputs(self):
+        self.actual_number_of_inputs += 1
+    
+    def get_node_gradient(self):
+        return self.node_gradient 
+    
+    def set_node_gradient(self, grad):
+        self.node_gradient = grad
         
-                
-                #insert adjacent node into fringe
-                #fringe.insert(0,adj_node)
-                fringe.append(adj_node)   #Must be DFS. BFS WILL NOT WORK for node-node skip connection graphs. 
+    def reset(self):
+        self.node_value = 0
+        self.actual_number_of_inputs = 0
+        self.node_gradient = None
+
+
+class Model:
+    def __init__(self):
+        self.model = {} #node id: [node's input nodes, node's output nodes, actual node]
+        self.number_of_nodes = 0 #used to create new id's
+        self.init_value_for_weights = 0.1
+        self.input_nodes = []
+        self.output_nodes = []
     
-    #for debugging
-    # print(model)
-    # print("---------------------------")
-    # print("---------------------------")
-    # print("---------------------------")
+    #handles nodes not yet added to the network
+    def add_node_to_network(self, is_input = False, is_output = False):
+        new_node = Node()
+        self.model[self.number_of_nodes] = [set(), {}, new_node]  #input nodes, output nodes, node info
+        
+        if is_input == True:
+            self.input_nodes.append(self.number_of_nodes)
+        
+        if is_output == True:
+            self.output_nodes.append(self.number_of_nodes)
+        
+        self.number_of_nodes += 1
+        
+        return new_node
     
-    
-    for node in range(0,10):  #to reset for forward propogation
-        if node <= 4:
-            model[node][2]=None
+    #nodes must ALREADY EXIST
+    def connect_nodes(self, node_id_1, node_id_2): #node1-->node2
+        if (node_id_1 >= self.number_of_nodes) or (node_id_2 >= self.number_of_nodes):
+            return False
         else:
-            model[node][2] = 0  
-        
-        model[node][3] = 0
-        model[node][4] = None
+            self.model[node_id_1][1][node_id_2] = [self.init_value_for_weights, None, None]
+            self.model[node_id_2][0].add(node_id_1)
+            return True
+    
+    
+    def forward_pass(self, input_tensor):
+            #replace first node values with inputs --> is O(x) where x = input size
+            count=0
+            for node_id in self.input_nodes:
+                self.model[node_id][2].set_value(input_tensor[count])
+                count+=1
+
+
+           
+            for start_node_id in self.input_nodes:
+                #bfs traversal
+                fringe=LinkedListQueue()  
+                fringe.enqueue(start_node_id)  #start with dummy node
+               
+                while len(fringe)!=0:
+                    current=fringe.dequeue()
+                   
+                   
+                    #iterate children (nodes going outward)
+                    for adj_node_id in self.model[current][1]:
+                        # output node value = sum of input node value * edge weight
+                        new_value = self.model[adj_node_id][2].get_value() + (self.model[current][2].get_value() * self.model[current][1][adj_node_id][0])
+                        self.model[adj_node_id][2].set_value(new_value)
+                        
+                        #note that the adjacent node recieved an input node -- fine because the same node won't be put in the fringe again
+                        self.model[adj_node_id][2].increase_actual_number_of_inputs()
+                       
+                        #only proceed with said node if all the inputs have come to that node (if actual == expected)
+                        if self.model[adj_node_id][2].get_actual_number_of_inputs() == len(self.model[adj_node_id][0]):
+                            fringe.enqueue(adj_node_id)
+                        
+                        
+        #     #guaranteed to have traversed all paths, so guaranteed to have calculated output node. all values stored in nodes. so no return value
+            
+
+    def backpropogation(self, y, adam = False, lr = 0.0001):
+            learning_rate=lr
+            
+            #to calculate error (MSE)
+            error=0
+            count=0
+            alpha=0.9
+            eps=1e-8
+            
+            
+            
+            for end_node_id in self.output_nodes:
+               #gradient for end_node_id
+               grad = 2 * (self.model[end_node_id][2].get_value() - y[count])  #MSE -- d(L)/d(final node)
+               self.model[end_node_id][2].set_node_gradient(grad)
+               count += 1
+               
+            for end_node_id in self.output_nodes:
+                fringe=[end_node_id]  #dfs
+                
+                while len(fringe) != 0:
+                    current=fringe.pop()
+                    
+                    
+                    #traverse children (reverse) -- get input nodes
+                    for adj_node_id in self.model[current][0]:
+                        #calculate gradient and update the weights connecting adj_node to current
+                        grad=self.model[current][2].get_node_gradient() * self.model[adj_node_id][2].get_value()   #dE/d(final node)...  *d(node)/d(weight)
+                        
+                        #update adj_node gradient
+                        self.model[adj_node_id][2].set_node_gradient( self.model[current][2].get_node_gradient() * self.model[adj_node_id][1][current][0] ) #dE/d(final node) * d(final node)/d(adj_node) ...
+                        
+                        #update weight connection adj_node to current
+                                        
+                        if adam == True:
+                            #first store weight averages
+                            if self.model[adj_node_id][1][current][1] == None:
+                                self.model[adj_node_id][1][current][1] = grad
+                            else:
+                                self.model[adj_node_id][1][current][1] = alpha * self.model[adj_node_id][1][current][1] + (1-alpha) * grad
+                            
+                            if self.model[adj_node_id][1][current][2] == None:
+                                self.model[adj_node_id][1][current][2] = grad ** 2
+                            else:
+                                self.model[adj_node_id][1][current][2] = alpha * self.model[adj_node_id][1][current][2] + (1-alpha) * grad ** 2
+                            
+                            #then take a step
+                            self.model[adj_node_id][1][current][0] -= learning_rate *  (self.model[adj_node_id][1][current][1]/math.sqrt(self.model[adj_node_id][1][current][2] + eps))
+                            
+                        else:
+                            #if adam is false:
+                            self.model[adj_node_id][1][current][0] -= learning_rate * grad
+                        
+                        #insert adjacent node into fringe
+                        #fringe.insert(0,adj_node)
+                        fringe.append(adj_node_id)   #Must be DFS. BFS WILL NOT WORK for node-node skip connection graphs. 
+             
+            for node in range(0,self.number_of_nodes):  #to reset for forward propogation
+                self.model[node][2].reset()
+
+    def train(self, input_tensor, y, epoch = 2000, adam = False, lr = 1e-4):
+        for i in range(epoch):
+            self.forward_pass(input_tensor)
+            self.backpropogation(y, adam = adam, lr=lr)
+            
+    def predict(self,input_tensor):
+        self.forward_pass(input_tensor)
+        for node in self.output_nodes:
+            print(self.model[node][2].get_value())
+#-----------------------------------------
+
 
 
 
@@ -146,38 +194,31 @@ def backpropogation(model, target, adam=False):
 inp_tensor=[1,2,3,4,5]
 
 
-#create graph
-model={
-       
-       
-       #network(layer 1: 5 nodes to 3 nodes)
-       0:[set(),{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]},None, 0, None],  #input_nodes, output_nodes, value, total inputs actually recieved, node's gradient
-       1:[set(),{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
-       2:[set(),{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
-       3:[set(),{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
-       4:[set(),{5:[0.1, None, None], 6:[0.1, None, None], 7:[0.1, None, None]}, None, 0, None],
-       
-       #network(layer 2: 3 nodes to one node)
-       5:[set([0,1,2,3,4]),{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
-       6:[set([0,1,2,3,4]),{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
-       7:[set([0,1,2,3,4]),{8:[0.1, None, None], 9:[0.1, None, None]}, 0, 0, None],
-       
-       #one node
-       8:[set([5,6,7]),{}, 0, 0, None],
-       9:[set([5,6,7]),{}, 0, 0, None]
-       
-       }
-
-
-for i in range(100):
-   forward_pass(model, inp_tensor)
-   backpropogation(model, [153,234], adam=False)
-
-
-plt.plot(plot_this)
-plt.show()
+#create graph/model
+model = Model()
+#add 10 nodes to the network
+for i in range(10):
+    if i < 5:
+        model.add_node_to_network(is_input=True)
+    elif i >= 8:
+        model.add_node_to_network(is_output=True)
+    else:
+        model.add_node_to_network()
+        
+#creating first layer (fully connected)
+for i in range(5,8): #output nodes
+    for j in range(0,5): #input nodes
+        model.connect_nodes(j, i)
+#creating second layer fc
+for i in range(8,10): #output nodes
+    for j in range(5,8): #input nodes
+        model.connect_nodes(j, i)
 
 
 
-
+#training the model
+model.train(inp_tensor, [153,234], adam = True, lr = 1e-2)
+    
+#final prediction
+model.predict(inp_tensor)
 
