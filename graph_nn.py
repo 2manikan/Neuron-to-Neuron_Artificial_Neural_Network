@@ -17,17 +17,29 @@ import matplotlib.pyplot as plt
 #---------------------------------------
 
 class Node:
-    def __init__(self):
+    def __init__(self, activation = None):
         self.node_value = 0
         self.actual_number_of_inputs = 0
         self.node_gradient = None  #is dL/d(node)
+        self.activation = activation
+        self.node_value_before_activation = None
     
+    def get_activation(self):
+        return self.activation
     
     def get_value(self):
         return self.node_value
     
+    
     def set_value(self, value):
         self.node_value = value
+        
+    def get_value_before_activation(self):
+        return self.node_value_before_activation
+    
+    
+    def set_value_before_activation(self, value):
+        self.node_value_before_activation = value
     
     def get_actual_number_of_inputs(self):
         return self.actual_number_of_inputs
@@ -54,10 +66,23 @@ class Model:
         self.init_value_for_weights = 0.1
         self.input_nodes = []
         self.output_nodes = []
+        
+    def activation_func(self, activation, value):
+        if activation == 'sigmoid':
+            return 1/(1 + math.e**(-value))
+        elif activation == None:
+            return 1
+    
+    def activation_gradient(self, activation, value):
+        if activation == 'sigmoid':
+            sigma = self.activation_func(activation, value)
+            return sigma * (1-sigma)
+        elif activation == None:
+            return 1
     
     #handles nodes not yet added to the network
-    def add_node_to_network(self, is_input = False, is_output = False):
-        new_node = Node()
+    def add_node_to_network(self, is_input = False, is_output = False, activation = None):
+        new_node = Node(activation = activation)
         self.model[self.number_of_nodes] = [set(), {}, new_node]  #input nodes, output nodes, node info
         
         if is_input == True:
@@ -109,6 +134,10 @@ class Model:
                        
                         #only proceed with said node if all the inputs have come to that node (if actual == expected)
                         if self.model[adj_node_id][2].get_actual_number_of_inputs() == len(self.model[adj_node_id][0]):
+                            if self.model[adj_node_id][2].get_activation() == 'sigmoid':
+                                self.model[adj_node_id][2].set_value_before_activation(self.model[adj_node_id][2].get_value())
+                                self.model[adj_node_id][2].set_value(  self.activation_func(self.model[adj_node_id][2].get_activation(), self.model[adj_node_id][2].get_value()) ) #SIGMOID FORMULA --> DO SIGMOID(adj node value)
+                                
                             fringe.enqueue(adj_node_id)
                         
                         
@@ -128,7 +157,7 @@ class Model:
             
             for end_node_id in self.output_nodes:
                #gradient for end_node_id
-               grad = 2 * (self.model[end_node_id][2].get_value() - y[count])  #MSE -- d(L)/d(final node)
+               grad = 2 * (self.model[end_node_id][2].get_value() - y[count])  #MSE final node --> is dL/da
                self.model[end_node_id][2].set_node_gradient(grad)
                count += 1
                
@@ -142,10 +171,10 @@ class Model:
                     #traverse children (reverse) -- get input nodes
                     for adj_node_id in self.model[current][0]:
                         #calculate gradient and update the weights connecting adj_node to current
-                        grad=self.model[current][2].get_node_gradient() * self.model[adj_node_id][2].get_value()   #dE/d(final node)...  *d(node)/d(weight)
+                        grad=self.model[current][2].get_node_gradient() * self.activation_gradient(self.model[current][2].get_activation(),  self.model[current][2].get_value_before_activation()   ) * self.model[adj_node_id][2].get_value()   #dE/d(final node)...  *d(node)/d(weight)  ---------> HERE IS WHERE THE ACTIVATION FUNCTION GRAD IS MULTIPLED IF THE OUTPUT NODE (CURRENT GRAD) HAS AN ACTIVATION (dL/df and dg/dw1 already here)
                         
                         #update adj_node gradient
-                        self.model[adj_node_id][2].set_node_gradient( self.model[current][2].get_node_gradient() * self.model[adj_node_id][1][current][0] ) #dE/d(final node) * d(final node)/d(adj_node) ...
+                        self.model[adj_node_id][2].set_node_gradient( self.model[current][2].get_node_gradient() * self.activation_gradient(self.model[current][2].get_activation(),  self.model[current][2].get_value_before_activation()    ) * self.model[adj_node_id][1][current][0] ) #dE/d(final node) * d(final node)/d(adj_node) ... -----> MUST MULTIPLY THE OUTPUT NODE ACTIVATION (IF IT EXISTS) HERE AS WELL!! (dL/df and dg/dr already here)
                         
                         #update weight connection adj_node to current
                                         
@@ -190,7 +219,7 @@ class Model:
 
 
 
-
+# first example (sparse network, predicting unit vector)
 inp_tensor=[1,2,3,4,5]
 
 
@@ -201,24 +230,32 @@ for i in range(10):
     if i < 5:
         model.add_node_to_network(is_input=True)
     elif i >= 8:
-        model.add_node_to_network(is_output=True)
+        model.add_node_to_network(is_output=True, activation = 'sigmoid')
     else:
-        model.add_node_to_network()
+        if i == 6:
+            model.add_node_to_network(activation = 'sigmoid')
+        else:
+            model.add_node_to_network()
         
-#creating first layer (fully connected)
+#creating first layer 
 for i in range(5,8): #output nodes
     for j in range(0,5): #input nodes
-        model.connect_nodes(j, i)
-#creating second layer fc
+        if ((i)!=(j+5)) and ((i-1) != (j+5)):
+            model.connect_nodes(j, i)
+#creating second layer 
 for i in range(8,10): #output nodes
     for j in range(5,8): #input nodes
-        model.connect_nodes(j, i)
+        if (j==6 and i==8) or (j==7 and i==9) or (j==5 and i==8):
+          model.connect_nodes(j, i)
 
 
 
 #training the model
-model.train(inp_tensor, [153,234], adam = True, lr = 1e-2)
+model.train(inp_tensor, [1, 0], epoch = 2000, adam = True, lr = 1e-2)
     
 #final prediction
 model.predict(inp_tensor)
+#--------------------------------------------------------------------------
+
+# second example
 
