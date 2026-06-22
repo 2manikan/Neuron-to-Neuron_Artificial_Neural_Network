@@ -15,6 +15,17 @@ class LinkedListQueue:           #is a doubly linked list
         self.length=0
     
 
+    def __str__(self):
+        string_version = ""
+        print(self.start)
+        if self.start != None:
+            node = self.start
+            while node != None:
+                string_version = string_version + str(node.get_value()) + "-->"
+                node = node.next
+        return string_version
+        
+        
     def enqueue(self, value):   #enqueue at end of list
         if self.start==None:
             self.start=Node(value)
@@ -34,7 +45,8 @@ class LinkedListQueue:           #is a doubly linked list
             self.start=self.start.next
         else:
             value=self.start.value
-            self.start==None
+            self.start=None
+            
         self.length-=1
         return value
     
@@ -47,6 +59,9 @@ class Node:
     def __init__(self, value):
         self.next=None
         self.value = value
+    
+    def get_value(self):
+        return self.value
 
 
 

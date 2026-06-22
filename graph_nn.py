@@ -120,8 +120,8 @@ class Model:
                 fringe.enqueue(start_node_id)  #start with dummy node
                
                 while len(fringe)!=0:
+                    
                     current=fringe.dequeue()
-                   
                    
                     #iterate children (nodes going outward)
                     for adj_node_id in self.model[current][1]:
@@ -140,11 +140,12 @@ class Model:
                                 
                             fringe.enqueue(adj_node_id)
                         
-                        
+                    
         #     #guaranteed to have traversed all paths, so guaranteed to have calculated output node. all values stored in nodes. so no return value
             
 
     def backpropogation(self, y, adam = False, lr = 0.0001):
+            
             learning_rate=lr
             
             #to calculate error (MSE)
@@ -204,8 +205,7 @@ class Model:
             for node in range(0,self.number_of_nodes):  #to reset for forward propogation
                 self.model[node][2].reset()
 
-    def train(self, input_tensor, y, epoch = 2000, adam = False, lr = 1e-4):
-        for i in range(epoch):
+    def step(self, input_tensor, y, adam = False, lr = 1e-4):
             self.forward_pass(input_tensor)
             self.backpropogation(y, adam = adam, lr=lr)
             
@@ -213,49 +213,80 @@ class Model:
         self.forward_pass(input_tensor)
         for node in self.output_nodes:
             print(self.model[node][2].get_value())
+        for node in range(0,self.number_of_nodes):  #to reset for forward propogation
+            self.model[node][2].reset()
 #-----------------------------------------
 
 
 
 
 
-# first example (sparse network, predicting unit vector)
-inp_tensor=[1,2,3,4,5]
+# # first example (sparse network, predicting vector)
+# inp_tensor=[1,2,3,4,5]
 
 
-#create graph/model
+# #create graph/model
+# model = Model()
+# #add 10 nodes to the network
+# for i in range(10):
+#     if i < 5:
+#         model.add_node_to_network(is_input=True)
+#     elif i >= 8:
+#         model.add_node_to_network(is_output=True)
+#     else:
+#         if i == 6:
+#             model.add_node_to_network(activation = 'sigmoid')
+#         else:
+#             model.add_node_to_network()
+        
+# #creating first layer 
+# for i in range(5,8): #output nodes
+#     for j in range(0,5): #input nodes
+#         if ((i)!=(j+5)) and ((i-1) != (j+5)):
+#             model.connect_nodes(j, i)
+# #creating second layer 
+# for i in range(8,10): #output nodes
+#     for j in range(5,8): #input nodes
+#         if (j==6 and i==8) or (j==7 and i==9) or (j==5 and i==8):
+#           model.connect_nodes(j, i)
+
+
+
+# #training the model
+# for l in range(2000):
+#     model.step(inp_tensor, [261, -231], adam = True, lr = 1e-2)
+    
+# #final prediction
+# model.predict(inp_tensor)
+#--------------------------------------------------------------------------
+
+# second example (lr)
 model = Model()
 #add 10 nodes to the network
 for i in range(10):
-    if i < 5:
+    if i == 0:
         model.add_node_to_network(is_input=True)
-    elif i >= 8:
-        model.add_node_to_network(is_output=True, activation = 'sigmoid')
+    elif i == 9:
+        model.add_node_to_network(is_output=True)
     else:
-        if i == 6:
-            model.add_node_to_network(activation = 'sigmoid')
-        else:
-            model.add_node_to_network()
+        model.add_node_to_network()
         
 #creating first layer 
-for i in range(5,8): #output nodes
-    for j in range(0,5): #input nodes
-        if ((i)!=(j+5)) and ((i-1) != (j+5)):
-            model.connect_nodes(j, i)
-#creating second layer 
-for i in range(8,10): #output nodes
-    for j in range(5,8): #input nodes
-        if (j==6 and i==8) or (j==7 and i==9) or (j==5 and i==8):
-          model.connect_nodes(j, i)
+for i in range(1,9): #output nodes
+    model.connect_nodes(0, i)
+    model.connect_nodes(i, 9)
+
+
+#td
+training_data =  [[k] for k in range(1,11)]
+y = [[4*k] for k in range(1,11)]
 
 
 
-#training the model
-model.train(inp_tensor, [1, 0], epoch = 2000, adam = True, lr = 1e-2)
-    
-#final prediction
-model.predict(inp_tensor)
-#--------------------------------------------------------------------------
+for i in range(100):
+    for j in range(len(training_data)):
+        model.step(training_data[j], y[j])
 
-# second example
+model.predict([3])
+model.predict([143])
 
